@@ -7,7 +7,7 @@ extern crate rocket;
 extern crate serde;
 extern crate rocket_contrib;
 
-#[macro_use]
+// #[macro_use]
 extern crate serde_json;
 
 #[macro_use]
@@ -31,6 +31,10 @@ use serde_json::Value as JsonValue;
 use rocket::http::RawStr;
 use rocket::response::NamedFile;
 use std::path::{Path, PathBuf};
+
+// #[macro_use]
+extern crate chrono;
+// use chrono::prelude::*;
 
 #[get("/")]
 fn index() -> &'static str {
@@ -57,6 +61,7 @@ fn ke_file(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static/").join(file)).ok()
 }
 
+// serde table accounts
 #[derive(Serialize, Deserialize)]
 struct Anggota {
     pub nama: String,
@@ -81,8 +86,37 @@ struct IdQuery {
 struct ApiResult {
     pub result: Vec<models::Account>,
 }
+// end serde table account
 
-use std::collections::HashMap;
+// serde table articles
+#[derive(Serialize, Deserialize)]
+struct AddArticle {
+    pub judul: String,
+    pub konten: String,
+    pub penulis: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UpdateArticle {
+    pub id: i64,
+    pub judul: String,
+    pub konten: String,
+    pub waktu: String,
+    pub penulis: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct IdQueryArticle {
+    pub id: i64,
+}
+
+#[derive(Serialize)]
+struct ApiResultArticle {
+    pub result: Vec<models::Article>,
+}
+// end serde table aarticles
+
+// use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -94,6 +128,7 @@ lazy_static! {
     };
 }
 
+// operation table accounts
 #[post("/register", format = "application/json", data = "<data>")]
 fn register(data: Json<Anggota>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
@@ -163,6 +198,79 @@ fn delete(data: Json<IdQuery>) -> String {
 
     format!("Akun anggota id `{}` telah dihapus.\n", data.id)
 }
+// end operation table accounts
+
+// operation table articles
+#[post("/article/add", format = "application/json", data = "<data>")]
+fn tambah_article(data: Json<AddArticle>) -> Json<JsonValue> {
+    let conn = DB.lock().unwrap();
+
+    let new_article = models::NewArticle {
+        judul: &data.judul,
+        konten: &data.konten,
+        penulis: &data.penulis,
+    };
+
+    let article: models::Article = diesel::insert_into(schema::articles::table)
+        .values(&new_article)
+        .get_result(&*conn)
+        .expect("gagal insert akun ke dalam database");
+
+    Json(
+        serde_json::value::to_value(ApiResultArticle {
+            result: vec![article],
+        })
+        .expect("gagal meng-serialize data"),
+    )
+}
+
+#[get("/article")]
+fn daftar_article() -> Json<ApiResultArticle> {
+    let conn = DB.lock().unwrap();
+
+    use schema::articles::dsl::*;
+
+    let daftar = articles
+        .limit(10)
+        .load::<models::Article>(&*conn)
+        .expect("gagal query ke database");
+
+    Json(ApiResultArticle { result: daftar })
+}
+
+// #[post("/article/update", data = "<data>")]
+// fn update_article(data: Json<UpdateAnggota>) -> Json<ApiResult> {
+//     let conn = DB.lock().unwrap();
+
+//     use schema::accounts::dsl::*;
+
+//     let data_baru: models::Account = diesel::update(accounts.find(data.id))
+//         .set((
+//             nama.eq(&data.nama),
+//             email.eq(&data.email),
+//             alamat.eq(&data.alamat),
+//         ))
+//         .get_result::<models::Account>(&*conn)
+//         .expect("gagal update ke database");
+
+//     Json(ApiResult {
+//         result: vec![data_baru],
+//     })
+// }
+
+#[post("/article/delete", data = "<data>")]
+fn delete_article(data: Json<IdQueryArticle>) -> String {
+    let conn = DB.lock().unwrap();
+
+    use schema::articles::dsl::*;
+
+    diesel::delete(articles.find(data.id))
+        .execute(&*conn)
+        .expect("gagal menghapus dari database");
+
+    format!("Akun anggota id `{}` telah dihapus.\n", data.id)
+}
+// end operation table articles
 
 fn main() {
     dotenv().ok();
@@ -177,7 +285,10 @@ fn main() {
                 register,
                 daftar_anggota,
                 update,
-                delete
+                delete,
+                daftar_article,
+                tambah_article,
+                delete_article
             ],
         )
         .launch();
