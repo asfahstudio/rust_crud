@@ -238,25 +238,25 @@ fn daftar_article() -> Json<ApiResultArticle> {
     Json(ApiResultArticle { result: daftar })
 }
 
-// #[post("/article/update", data = "<data>")]
-// fn update_article(data: Json<UpdateAnggota>) -> Json<ApiResult> {
-//     let conn = DB.lock().unwrap();
+#[post("/article/update", data = "<data>")]
+fn update_article(data: Json<UpdateArticle>) -> Json<ApiResultArticle> {
+    let conn = DB.lock().unwrap();
 
-//     use schema::accounts::dsl::*;
+    use schema::articles::dsl::*;
 
-//     let data_baru: models::Account = diesel::update(accounts.find(data.id))
-//         .set((
-//             nama.eq(&data.nama),
-//             email.eq(&data.email),
-//             alamat.eq(&data.alamat),
-//         ))
-//         .get_result::<models::Account>(&*conn)
-//         .expect("gagal update ke database");
+    let data_baru: models::Article = diesel::update(articles.find(data.id))
+        .set((
+            judul.eq(&data.judul),
+            konten.eq(&data.konten),
+            penulis.eq(&data.penulis),
+        ))
+        .get_result::<models::Article>(&*conn)
+        .expect("gagal update ke database");
 
-//     Json(ApiResult {
-//         result: vec![data_baru],
-//     })
-// }
+    Json(ApiResultArticle {
+        result: vec![data_baru],
+    })
+}
 
 #[post("/article/delete", data = "<data>")]
 fn delete_article(data: Json<IdQueryArticle>) -> String {
@@ -288,7 +288,8 @@ fn main() {
                 delete,
                 daftar_article,
                 tambah_article,
-                delete_article
+                delete_article,
+                update_article
             ],
         )
         .launch();
