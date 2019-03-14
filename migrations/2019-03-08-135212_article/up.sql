@@ -1,0 +1,7 @@
+CREATE TABLE article (
+    id BIGSERIAL PRIMARY KEY,
+    judul TEXT NOT NULL,
+    konten TEXT NOT NULL,
+    penulis TEXT NOT NULL,
+    published TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

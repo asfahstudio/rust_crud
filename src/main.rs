@@ -1,6 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
-#[macro_use] 
+#[macro_use]
 extern crate rocket;
 
 #[macro_use]
@@ -10,24 +10,28 @@ extern crate rocket_contrib;
 #[macro_use]
 extern crate serde_json;
 
+
 #[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
 extern crate diesel;
 extern crate dotenv;
+extern crate chrono;
 
-mod schema;
+
 mod models;
+mod schema;
 
-use diesel::prelude::*;
 use diesel::pg::PgConnection;
+use diesel::prelude::*;
 use dotenv::dotenv;
 use std::env;
 
-use rocket_contrib::json::Json;
-use serde_json::{Value as JsonValue};
+use chrono::{DateTime, TimeZone, NaiveDateTime};
 
+use rocket_contrib::json::Json;
+use serde_json::Value as JsonValue;
 use rocket::http::RawStr;
 use rocket::response::NamedFile;
 use std::path::{Path, PathBuf};
@@ -39,30 +43,31 @@ fn index() -> &'static str {
 
 #[get("/nama/<name>/<umur>")]
 fn nama_user(name: &RawStr, umur: i32) -> String {
-//   let umur:i32 = match umur.parse(){
-//    Ok(angka) => angka,
-//    Err(gagal) =>{
-//       println!("Umur bukan angka: {}",umur)
-//     20
-//    }
-//  };
-   let pak_atau_mas = if umur > 30 {
-       "pak"
-   }else{
-       "mas"
-   };
-    format!("Hello, {} {}! \nApa kabarmu di umur ({})?", pak_atau_mas, name.as_str(), umur)
+    //   let umur:i32 = match umur.parse(){
+    //    Ok(angka) => angka,
+    //    Err(gagal) =>{
+    //       println!("Umur bukan angka: {}",umur)
+    //     20
+    //    }
+    //  };
+    let pak_atau_mas = if umur > 30 { "pak" } else { "mas" };
+    format!(
+        "Hello, {} {}! \nApa kabarmu di umur ({})?",
+        pak_atau_mas,
+        name.as_str(),
+        umur
+    )
 }
 #[get("/download/<file..>")]
-    fn ke_file(file:PathBuf) -> Option<NamedFile> {
-        NamedFile::open(Path::new("static/").join(file)).ok()
-    }
+fn ke_file(file: PathBuf) -> Option<NamedFile> {
+    NamedFile::open(Path::new("static/").join(file)).ok()
+}
 
 #[derive(Serialize, Deserialize)]
 struct Anggota {
     pub nama: String,
     pub email: String,
-    pub alamat: String
+    pub alamat: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -70,18 +75,48 @@ struct UpdateAnggota {
     pub id: i64,
     pub nama: String,
     pub email: String,
-    pub alamat: String
+    pub alamat: String,
 }
 
 #[derive(Serialize, Deserialize)]
 struct IdQuery {
-    pub id:i64
+    pub id: i64,
 }
-
 
 #[derive(Serialize)]
 struct ApiResult {
     pub result: Vec<models::Account>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Tulisan {
+    pub judul: String,
+    pub konten: String,
+    pub penulis: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct UpdateTulisan {
+    pub id: i64,
+    pub judul: String,
+    pub konten: String,
+    pub penulis: String,
+    pub published: String
+}
+
+#[derive(Serialize, Deserialize)]
+struct IdQueryArtikel {
+    pub id:i64,
+}
+
+#[derive(Serialize)]
+struct ApiResultArtikel {
+    pub result: Vec<models::Artikel>,
+}
+
+#[derive()]
+struct UTC {
+    pub timestamp: NaiveDateTime,
 }
 
 use std::collections::HashMap;
@@ -91,7 +126,7 @@ lazy_static! {
     // static  ref DB:Arc<Mutex<HashMap<String, String>>> = {
     //     let d = HashMap::new();
     //     //d.insert("yoga".to_string(), r#"{"nama":"email":"yoga@gmail.com"}"#to_string());
-    //     Arc::new(Mutex::new(d))    
+    //     Arc::new(Mutex::new(d))
     // };
 
     static ref DB:Arc<Mutex<PgConnection>> = {
@@ -119,23 +154,20 @@ fn register(data: Json<Anggota>) -> Json<JsonValue> {
     let new_account = models::NewAccount {
         nama: &data.nama,
         email: &data.email,
-        alamat: &data.alamat
+        alamat: &data.alamat,
     };
 
-    let account:models::Account = diesel::insert_into(schema::accounts::table)
-    .values(&new_account)
-    .get_result(&*conn)
-    .expect("Gagal insert akun ke dalam database");
+    let account: models::Account = diesel::insert_into(schema::accounts::table)
+        .values(&new_account)
+        .get_result(&*conn)
+        .expect("Gagal insert akun ke dalam database");
 
     Json(
-        serde_json::value::to_value(
-            ApiResult{
-                result:vec![account]
-            }
-        ).expect("Gagal meng-serialize data")
+        serde_json::value::to_value(ApiResult {
+            result: vec![account],
+        })
+        .expect("Gagal meng-serialize data"),
     )
-
-   
 }
 
 #[get("/anggota")]
@@ -144,8 +176,10 @@ fn daftar_anggota() -> Json<ApiResult> {
 
     use schema::accounts::dsl::*;
 
-    let daftar = accounts.limit(10).load::<models::Account>(&*conn).expect("gagal query ke databse");
-
+    let daftar = accounts
+        .limit(10)
+        .load::<models::Account>(&*conn)
+        .expect("gagal query ke database");
 
     // let daftar = db
     // .iter()
@@ -155,11 +189,11 @@ fn daftar_anggota() -> Json<ApiResult> {
     // })
     // .collect();
 
-    Json(ApiResult { result: daftar})
+    Json(ApiResult { result: daftar })
 }
 
-#[post("/anggota/update", data= "<data>")]
-fn update(data:Json<UpdateAnggota>) -> Json<ApiResult> {
+#[post("/anggota/update", data = "<data>")]
+fn update(data: Json<UpdateAnggota>) -> Json<ApiResult> {
     let conn = DB.lock().unwrap();
     // let mut data_baru: Option<Anggota> = None;
 
@@ -176,14 +210,17 @@ fn update(data:Json<UpdateAnggota>) -> Json<ApiResult> {
 
     use schema::accounts::dsl::*;
 
-    let data_baru:models::Account = diesel::update(accounts.find(data.id))
+    let data_baru: models::Account = diesel::update(accounts.find(data.id))
+        //nama = data.nama, email = data.email, alamat = data.alamat
+        .set((
+            nama.eq(&data.nama),
+            email.eq(&data.email),
+            alamat.eq(&data.alamat),
+        ))
+        .get_result::<models::Account>(&*conn)
+        .expect("Gagal mengupdate ke database");
 
-    //nama = data.nama, email = data.email, alamat = data.alamat
-    .set((nama.eq(&data.nama), email.eq(&data.email), alamat.eq(&data.alamat)))
-    .get_result::<models::Account>(&*conn)
-    .expect("Gagal mengupdate ke database");
-
-    Json(ApiResult{
+    Json(ApiResult {
         result: vec![data_baru],
     })
 }
@@ -199,15 +236,100 @@ fn delete(data: Json<IdQuery>) -> String {
     use schema::accounts::dsl::*;
 
     diesel::delete(accounts.find(data.id))
-    .execute(&*conn)
-    .expect("Gagal menghapus dari database");
+        .execute(&*conn)
+        .expect("Gagal menghapus dari database");
 
-    format! ("Akun anggota '{}' telah dihapus.", data.id)
+    format!("Akun anggota '{}' telah dihapus.", data.id)
+}
+
+#[post("/artikel/add", format = "application/json", data = "<data>")]
+fn add_artikel(data: Json<Tulisan>) -> Json<JsonValue> {
+    let conn = DB.lock().unwrap();
+
+    let new_artikel = models::NewArtikel {
+        judul: &data.judul,
+        konten: &data.konten,
+        penulis: &data.penulis,
+    
+    };
+
+    let artikel: models::Artikel = diesel::insert_into(schema::article::table)
+        .values(&new_artikel)
+        .get_result(&*conn)
+        .expect("Gagal insert judul ke dalam database");
+
+    Json(
+        serde_json::value::to_value(ApiResultArtikel {
+            result: vec![artikel],
+        })
+        .expect("Gagal meng-serialize data"),
+    )
+}
+
+#[get("/artikel")]
+fn list_artikel() -> Json<ApiResultArtikel> {
+    let conn = DB.lock().unwrap();
+    use schema::article::dsl::*;
+    let daftar = article
+        .limit(10)
+        .load::<models::Artikel>(&*conn)
+        .expect("gagal query ke database");
+
+    Json(ApiResultArtikel { result: daftar })
+}
+
+#[post("/artikel/update", data = "<data>")]
+fn update_artikel(data: Json<UpdateTulisan>) -> Json<ApiResultArtikel> {
+    let conn = DB.lock().unwrap();
+
+    use schema::article::dsl::*;
+
+    let data_baru: models::Artikel = diesel::update(article.find(data.id))
+        .set((
+            judul.eq(&data.judul),
+            konten.eq(&data.konten),
+            penulis.eq(&data.penulis),
+        ))
+        .get_result::<models::Artikel>(&*conn)
+        .expect("gagal update ke database");
+
+       Json(ApiResultArtikel {
+        result: vec![data_baru],
+    })
+}
+
+#[post("/artikel/delete", data = "<data>")]
+fn delete_artikel(data: Json<IdQueryArtikel>) -> String {
+    let conn = DB.lock().unwrap();
+
+    use schema::article::dsl::*;
+
+    diesel::delete(article.find(data.id))
+        .execute(&*conn)
+        .expect("gagal menghapus dari database");
+
+    format!("Akun anggota id `{}` telah dihapus.\n", data.id)
 }
 
 fn main() {
     dotenv().ok();
 
-    rocket::ignite().mount("/", routes![index, nama_user, ke_file, register, daftar_anggota,
-    update, delete],).launch();
+    rocket::ignite()
+        .mount(
+            "/",
+            routes![
+                index,
+                nama_user,
+                ke_file,
+                register,
+                daftar_anggota,
+                update,
+                delete,
+                add_artikel,
+                list_artikel,
+                update_artikel,
+                delete_artikel
+            ],
+        )
+        .launch();
 }
