@@ -302,7 +302,7 @@ fn delete_article(data: Json<IdQueryArticle>) -> String {
         .execute(&*conn)
         .expect("gagal menghapus dari database");
 
-    format!("Akun anggota id `{}` telah dihapus.\n", data.id)
+    format!("Akun anggota dengan id `{}` telah dihapus.\n", data.id)
 }
 // end operation table articles
 
