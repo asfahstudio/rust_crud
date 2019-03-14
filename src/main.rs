@@ -10,15 +10,13 @@ extern crate rocket_contrib;
 #[macro_use]
 extern crate serde_json;
 
-
 #[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
 extern crate diesel;
-extern crate dotenv;
 extern crate chrono;
-
+extern crate dotenv;
 
 mod models;
 mod schema;
@@ -28,12 +26,12 @@ use diesel::prelude::*;
 use dotenv::dotenv;
 use std::env;
 
-use chrono::{DateTime, TimeZone, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, TimeZone};
 
-use rocket_contrib::json::Json;
-use serde_json::Value as JsonValue;
 use rocket::http::RawStr;
 use rocket::response::NamedFile;
+use rocket_contrib::json::Json;
+use serde_json::Value as JsonValue;
 use std::path::{Path, PathBuf};
 
 #[get("/")]
@@ -89,34 +87,29 @@ struct ApiResult {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Tulisan {
+struct AddArticle {
     pub judul: String,
     pub konten: String,
     pub penulis: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct UpdateTulisan {
+struct UpdateArticle {
     pub id: i64,
     pub judul: String,
     pub konten: String,
+    pub waktu: String,
     pub penulis: String,
-    pub published: String
 }
 
 #[derive(Serialize, Deserialize)]
-struct IdQueryArtikel {
-    pub id:i64,
+struct IdQueryArticle {
+    pub id: i64,
 }
 
 #[derive(Serialize)]
-struct ApiResultArtikel {
-    pub result: Vec<models::Artikel>,
-}
-
-#[derive()]
-struct UTC {
-    pub timestamp: NaiveDateTime,
+struct ApiResultArticle {
+    pub result: Vec<models::Article>,
 }
 
 use std::collections::HashMap;
@@ -242,74 +235,76 @@ fn delete(data: Json<IdQuery>) -> String {
     format!("Akun anggota '{}' telah dihapus.", data.id)
 }
 
-#[post("/artikel/add", format = "application/json", data = "<data>")]
-fn add_artikel(data: Json<Tulisan>) -> Json<JsonValue> {
+#[post("/article/add", format = "application/json", data = "<data>")]
+fn tambah_article(data: Json<AddArticle>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
 
-    let new_artikel = models::NewArtikel {
+    let new_article = models::NewArticle {
         judul: &data.judul,
         konten: &data.konten,
         penulis: &data.penulis,
-    
     };
 
-    let artikel: models::Artikel = diesel::insert_into(schema::article::table)
-        .values(&new_artikel)
+    let article: models::Article = diesel::insert_into(schema::articles::table)
+        .values(&new_article)
         .get_result(&*conn)
-        .expect("Gagal insert judul ke dalam database");
+        .expect("gagal insert akun ke dalam database");
 
     Json(
-        serde_json::value::to_value(ApiResultArtikel {
-            result: vec![artikel],
+        serde_json::value::to_value(ApiResultArticle {
+            result: vec![article],
         })
-        .expect("Gagal meng-serialize data"),
+        .expect("gagal meng-serialize data"),
     )
 }
 
-#[get("/artikel")]
-fn list_artikel() -> Json<ApiResultArtikel> {
+#[get("/article")]
+fn daftar_article() -> Json<ApiResultArticle> {
     let conn = DB.lock().unwrap();
-    use schema::article::dsl::*;
-    let daftar = article
+
+    use schema::articles::dsl::*;
+
+    let daftar = articles
         .limit(10)
-        .load::<models::Artikel>(&*conn)
+        .load::<models::Article>(&*conn)
         .expect("gagal query ke database");
 
-    Json(ApiResultArtikel { result: daftar })
+    Json(ApiResultArticle { result: daftar })
 }
 
-#[post("/artikel/update", data = "<data>")]
-fn update_artikel(data: Json<UpdateTulisan>) -> Json<ApiResultArtikel> {
+#[post("/article/update", data = "<data>")]
+fn update_article(data: Json<UpdateArticle>) -> Json<ApiResultArticle> {
     let conn = DB.lock().unwrap();
 
-    use schema::article::dsl::*;
+    use schema::articles::dsl::*;
 
-    let data_baru: models::Artikel = diesel::update(article.find(data.id))
+    let data_baru: models::Article = diesel::update(articles.find(data.id))
         .set((
             judul.eq(&data.judul),
             konten.eq(&data.konten),
             penulis.eq(&data.penulis),
         ))
-        .get_result::<models::Artikel>(&*conn)
+        .get_result::<models::Article>(&*conn)
         .expect("gagal update ke database");
 
-       Json(ApiResultArtikel {
+    Json(ApiResultArticle {
         result: vec![data_baru],
     })
 }
 
-#[post("/artikel/delete", data = "<data>")]
-fn delete_artikel(data: Json<IdQueryArtikel>) -> String {
+#[post("/article/delete", data = "<data>")]
+fn delete_article(data: Json<IdQueryArticle>) -> String {
     let conn = DB.lock().unwrap();
 
-    use schema::article::dsl::*;
+    use schema::articles::dsl::*;
 
-    diesel::delete(article.find(data.id))
+    diesel::delete(articles.find(data.id))
         .execute(&*conn)
         .expect("gagal menghapus dari database");
 
     format!("Akun anggota id `{}` telah dihapus.\n", data.id)
 }
+// end operation table articles
 
 fn main() {
     dotenv().ok();
@@ -325,10 +320,10 @@ fn main() {
                 daftar_anggota,
                 update,
                 delete,
-                add_artikel,
-                list_artikel,
-                update_artikel,
-                delete_artikel
+                daftar_article,
+                tambah_article,
+                delete_article,
+                update_article
             ],
         )
         .launch();

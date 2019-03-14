@@ -5,7 +5,7 @@ authors = ["uncleYO18 <dr.agoy007@gmail.com>"]
 
 [dependencies]
 rocket = "0.4.0"
-chrono = "0.4.6"
+chrono = { version = "0.4", features = ["serde","rustc-serialize"] }
 
 
 

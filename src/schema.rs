@@ -17,7 +17,18 @@ table! {
     }
 }
 
+table! {
+    articles (id) {
+        id -> Int8,
+        judul -> Text,
+        konten -> Text,
+        waktu -> Timestamp,
+        penulis -> Text,
+    }
+}
+
 allow_tables_to_appear_in_same_query!(
     accounts,
     article,
+    articles,
 );
