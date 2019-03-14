@@ -17,6 +17,9 @@ extern crate lazy_static;
 extern crate diesel;
 extern crate dotenv;
 
+// #[macro_use]
+extern crate chrono;
+
 mod models;
 mod schema;
 
@@ -31,10 +34,6 @@ use serde_json::Value as JsonValue;
 use rocket::http::RawStr;
 use rocket::response::NamedFile;
 use std::path::{Path, PathBuf};
-
-// #[macro_use]
-extern crate chrono;
-// use chrono::prelude::*;
 
 #[get("/")]
 fn index() -> &'static str {

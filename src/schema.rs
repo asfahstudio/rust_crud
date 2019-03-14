@@ -12,7 +12,7 @@ table! {
         id -> Int8,
         judul -> Text,
         konten -> Text,
-        waktu -> Text,
+        waktu -> Timestamp,
         penulis -> Text,
     }
 }

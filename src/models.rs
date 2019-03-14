@@ -1,9 +1,9 @@
-// use diesel::pg::PgConnection;
-// use diesel::prelude::*;
-// use dotenv::dotenv;
-// use std::env;
+use diesel::pg::PgConnection;
+use diesel::prelude::*;
+use dotenv::dotenv;
+use std::env;
 
-// use chrono::prelude::*;
+use chrono::prelude::*;
 
 use crate::schema::{accounts, articles};
 
@@ -23,13 +23,17 @@ pub struct NewAccount<'a> {
     pub alamat: &'a str,
 }
 
-use chrono::NaiveDateTime;
+// use chrono::offset::TimeZone;
+
+use chrono::*;
+use diesel::sql_types::Timestamp;
+
 #[derive(Queryable, Serialize)]
 pub struct Article {
     pub id: i64,
     pub judul: String,
     pub konten: String,
-    pub waktu: String,
+    pub waktu: NaiveDateTime,
     pub penulis: String,
 }
 
