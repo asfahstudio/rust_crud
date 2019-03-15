@@ -8,16 +8,16 @@ table! {
 }
 
 table! {
-    artikels (id_artikels) {
-        id_artikels -> Int8,
+    articles (id) {
+        id -> Int8,
         judul -> Text,
         konten -> Text,
-        uploaded -> Timestamp,
-        writer -> Text,
+        waktu -> Timestamp,
+        penulis -> Text,
     }
 }
 
 allow_tables_to_appear_in_same_query!(
     accounts,
-    artikels,
+    articles,
 );

@@ -5,7 +5,7 @@
 // use std::env;
 
 use crate::schema::accounts;
-use crate::schema::artikels;
+use crate::schema::articles;
 
 #[derive(Queryable, Serialize)]
 pub struct Account {
@@ -35,19 +35,22 @@ use chrono::{NaiveDateTime};
 // let utc = dt.with_timezone(&UTC);
 // assert_eq!(utc.to_string(), "2016-10-21 23:00:00 UTC");
 
+// use chrono::*;
+// use diesel::sql_types::Timestamp;
+
 #[derive(Queryable, Serialize)]
-pub struct Artikel {
-    pub id_artikel: i64,
+pub struct Article {
+    pub id: i64,
     pub judul: String,
     pub konten: String,
-    pub uploaded: NaiveDateTime,
-    pub writer: String,
+    pub waktu: NaiveDateTime,
+    pub penulis: String,
 }
 
-#[derive(Insertable)]
-#[table_name = "artikels"]
-pub struct NewArtikel<'a> {
+#[derive(Insertable, Queryable)]
+#[table_name = "articles"]
+pub struct NewArticle<'a> {
     pub judul: &'a str,
     pub konten: &'a str,
-    pub writer: &'a str,
+    pub penulis: &'a str,
 }
