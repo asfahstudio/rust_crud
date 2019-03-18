@@ -24,6 +24,8 @@ extern crate chrono_tz;
 mod models;
 mod schema;
 
+use chrono::prelude::Local;
+
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenv::dotenv;
@@ -96,13 +98,11 @@ struct AddArticle {
     pub penulis: String,
 }
 
-use chrono::*;
 #[derive(Serialize, Deserialize)]
 struct UpdateArticle {
     pub id: i64,
     pub judul: String,
     pub konten: String,
-    pub waktu: NaiveDateTime,
     pub penulis: String,
 }
 
@@ -201,14 +201,33 @@ fn delete(data: Json<IdQuery>) -> String {
 }
 // end operation table accounts
 
+// use std::time::{SystemTime, UNIX_EPOCH};
+
+// fn main() {
+//     let start = SystemTime::now();
+//     let since_the_epoch = start.duration_since(UNIX_EPOCH)
+//         .expect("Time went backwards");
+//     println!("{:?}", since_the_epoch);
+// }
+
 // operation table articles
 #[post("/article/add", format = "application/json", data = "<data>")]
 fn tambah_article(data: Json<AddArticle>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
 
+    // use chrono::{NaiveDate, TimeZone};
+    // use chrono_tz::Asia::Jakarta;
+
+    // let naive_dt = NaiveDate::from_ymd(2038, 1, 19).and_hms(3, 14, 08);
+    // let tz_aware = Jakarta.from_local_datetime(&naive_dt).unwrap();
+    // assert_eq!(tz_aware.to_string(), "2038-01-19 03:14:08 SAST");
+
+    let now = Local::now().naive_local();
+
     let new_article = models::NewArticle {
         judul: &data.judul,
         konten: &data.konten,
+        waktu: now,
         penulis: &data.penulis,
     };
 
@@ -245,10 +264,13 @@ fn update_article(data: Json<UpdateArticle>) -> Json<ApiResultArticle> {
 
     use schema::articles::dsl::*;
 
+    let now = Local::now().naive_local();
+
     let data_baru: models::Article = diesel::update(articles.find(data.id))
         .set((
             judul.eq(&data.judul),
             konten.eq(&data.konten),
+            waktu.eq(now),
             penulis.eq(&data.penulis),
         ))
         .get_result::<models::Article>(&*conn)
@@ -275,6 +297,11 @@ fn delete_article(data: Json<IdQueryArticle>) -> String {
 
 fn main() {
     dotenv().ok();
+    // let start = SystemTime::now();
+    // let since_the_epoch = start
+    //     .duration_since(UNIX_EPOCH)
+    //     .expect("Time went backwards");
+    // println!("{:?}", since_the_epoch);
 
     rocket::ignite()
         .mount(
