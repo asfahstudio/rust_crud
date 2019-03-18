@@ -19,6 +19,7 @@ extern crate dotenv;
 
 // #[macro_use]
 extern crate chrono;
+extern crate chrono_tz;
 
 mod models;
 mod schema;
@@ -95,12 +96,13 @@ struct AddArticle {
     pub penulis: String,
 }
 
+use chrono::*;
 #[derive(Serialize, Deserialize)]
 struct UpdateArticle {
     pub id: i64,
     pub judul: String,
     pub konten: String,
-    pub waktu: String,
+    pub waktu: NaiveDateTime,
     pub penulis: String,
 }
 
@@ -267,7 +269,7 @@ fn delete_article(data: Json<IdQueryArticle>) -> String {
         .execute(&*conn)
         .expect("gagal menghapus dari database");
 
-    format!("Akun anggota id `{}` telah dihapus.\n", data.id)
+    format!("Artikel dengan id `{}` telah dihapus.\n", data.id)
 }
 // end operation table articles
 

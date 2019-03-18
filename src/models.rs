@@ -1,9 +1,7 @@
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use dotenv::dotenv;
-use std::env;
-
-use chrono::prelude::*;
+// use diesel::pg::PgConnection;
+// use diesel::prelude::*;
+// use dotenv::dotenv;
+// use std::env;
 
 use crate::schema::{accounts, articles};
 
@@ -24,9 +22,7 @@ pub struct NewAccount<'a> {
 }
 
 // use chrono::offset::TimeZone;
-
 use chrono::*;
-use diesel::sql_types::Timestamp;
 
 #[derive(Queryable, Serialize)]
 pub struct Article {
