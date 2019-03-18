@@ -27,11 +27,7 @@ use diesel::prelude::*;
 use dotenv::dotenv;
 use std::env;
 
-// use chrono::{TimeZone, Utc, NaiveDateTime};
-// use chrono_tz::Asia::Jakarta;
-// use chrono::prelude::*;
-// use std::time::SystemTime;
-// use diesel::dsl::now;
+use chrono::prelude::Local;
 
 use rocket_contrib::json::Json;
 use serde_json::Value as JsonValue;
@@ -39,7 +35,6 @@ use serde_json::Value as JsonValue;
 use rocket::http::RawStr;
 use rocket::response::NamedFile;
 use std::path::{Path, PathBuf};
-
 
 /*------------------------------------------------------------------------------------- */
 
@@ -149,7 +144,6 @@ struct UpdateArticle {
     pub id: i64,
     pub judul: String,
     pub konten: String,
-    pub waktu: String,
     pub penulis: String,
 }
 
@@ -162,7 +156,6 @@ struct IdQueryArticle {
 struct ApiResultArticle {
     pub result: Vec<models::Article>,
 }
-
 
 /*END of ARTIKEL */
 /* -------------------------------------------------------------------------------------------------- */
@@ -387,9 +380,12 @@ fn delete(data: Json<IdQuery>) -> String {
 fn tambah_article(data: Json<AddArticle>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
 
+    let now = Local::now().naive_local();
+
     let new_article = models::NewArticle {
         judul: &data.judul,
         konten: &data.konten,
+        waktu: now,
         penulis: &data.penulis,
     };
 
@@ -426,10 +422,13 @@ fn update_article(data: Json<UpdateArticle>) -> Json<ApiResultArticle> {
 
     use schema::articles::dsl::*;
 
+    let now_update = Local::now().naive_local();
+
     let data_baru: models::Article = diesel::update(articles.find(data.id))
         .set((
             judul.eq(&data.judul),
             konten.eq(&data.konten),
+            waktu.eq(now_update),
             penulis.eq(&data.penulis),
         ))
         .get_result::<models::Article>(&*conn)
