@@ -280,12 +280,15 @@ fn daftar_article() -> Json<ApiResultArticle> {
 fn update_article(data: Json<UpdateArticle>) -> Json<ApiResultArticle> {
     let conn = DB.lock().unwrap();
 
+    let _update_now = Local::now().naive_local();
+
     use schema::articles::dsl::*;
 
     let data_baru: models::Article = diesel::update(articles.find(data.id))
         .set((
             judul.eq(&data.judul),
             konten.eq(&data.konten),
+            waktu.eq(_update_now),
             penulis.eq(&data.penulis),
         ))
         .get_result::<models::Article>(&*conn)
