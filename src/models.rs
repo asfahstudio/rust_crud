@@ -1,9 +1,9 @@
-use diesel::prelude::*;
-use diesel::pg::PgConnection;
-use dotenv::dotenv;
-use std::env;
+// use diesel::prelude::*;
+// use diesel::pg::PgConnection;
+// use dotenv::dotenv;
+// use std::env;
 
-use chrono::prelude::*;
+// use chrono::prelude::*;
 
 use crate::schema::{accounts,articles};
 
@@ -23,9 +23,8 @@ pub struct NewAccount<'a> {
     pub alamat:&'a str
 }
 
+use super::chrono;
 use chrono::*;
-use diesel::sql_types::Timestamp;
-
 
 #[derive(Queryable, Serialize)]
 pub struct Article {
@@ -42,4 +41,5 @@ pub struct NewArticle<'a> {
     pub judul: &'a str,
     pub konten: &'a str,
     pub penulis: &'a str,
+    pub waktu: chrono::NaiveDateTime
 }

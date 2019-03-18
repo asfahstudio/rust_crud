@@ -26,7 +26,7 @@ use diesel::prelude::*;
 use dotenv::dotenv;
 use std::env;
 
-use chrono::{DateTime, NaiveDateTime, TimeZone};
+use chrono::prelude::Local;
 
 use rocket::http::RawStr;
 use rocket::response::NamedFile;
@@ -100,7 +100,7 @@ struct UpdateArticle {
     pub konten: String,
     pub waktu: String,
     pub penulis: String,
-}
+   }
 
 #[derive(Serialize, Deserialize)]
 struct IdQueryArticle {
@@ -239,10 +239,14 @@ fn delete(data: Json<IdQuery>) -> String {
 fn tambah_article(data: Json<AddArticle>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
 
+    let now = Local::now().naive_local();
+
     let new_article = models::NewArticle {
         judul: &data.judul,
         konten: &data.konten,
+        waktu: now,
         penulis: &data.penulis,
+        
     };
 
     let article: models::Article = diesel::insert_into(schema::articles::table)
