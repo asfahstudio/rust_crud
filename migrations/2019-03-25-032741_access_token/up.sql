@@ -1,0 +1,7 @@
+CREATE TABLE access_tokens(
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES accounts(id),
+    token VARCHAR(100) NOT NULL
+);
+
+ALTER TABLE accounts ADD COLUMN password VARCHAR(20) NOT NULL DEFAULT '123';

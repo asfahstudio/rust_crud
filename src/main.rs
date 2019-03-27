@@ -16,6 +16,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate diesel;
 extern crate dotenv;
+extern crate rand;
 
 // #[macro_use]
 extern crate chrono;
@@ -25,6 +26,7 @@ mod models;
 mod schema;
 
 use chrono::prelude::Local;
+use serde::Serialize;
 
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
@@ -63,12 +65,13 @@ fn ke_file(file: PathBuf) -> Option<NamedFile> {
     NamedFile::open(Path::new("static/").join(file)).ok()
 }
 
-// serde table accounts
+// accounts serde start
 #[derive(Serialize, Deserialize)]
 struct Anggota {
     pub nama: String,
     pub email: String,
     pub alamat: String,
+    pub password: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -77,6 +80,7 @@ struct UpdateAnggota {
     pub nama: String,
     pub email: String,
     pub alamat: String,
+    pub password: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -85,12 +89,12 @@ struct IdQuery {
 }
 
 #[derive(Serialize)]
-struct ApiResult {
-    pub result: Vec<models::Account>,
+struct ApiResult<T: Serialize> {
+    pub result: T,
 }
-// end serde table account
+// accounts serde end
 
-// serde table articles
+// articles serde start
 #[derive(Serialize, Deserialize)]
 struct AddArticle {
     pub judul: String,
@@ -115,9 +119,8 @@ struct IdQueryArticle {
 struct ApiResultArticle {
     pub result: Vec<models::Article>,
 }
-// end serde table aarticles
+// articles serde end
 
-// use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 lazy_static! {
@@ -129,7 +132,7 @@ lazy_static! {
     };
 }
 
-// operation table accounts
+// accounts CRUD start
 #[post("/register", format = "application/json", data = "<data>")]
 fn register(data: Json<Anggota>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
@@ -138,6 +141,7 @@ fn register(data: Json<Anggota>) -> Json<JsonValue> {
         nama: &data.nama,
         email: &data.email,
         alamat: &data.alamat,
+        password: &data.password,
     };
 
     let account: models::Account = diesel::insert_into(schema::accounts::table)
@@ -153,8 +157,58 @@ fn register(data: Json<Anggota>) -> Json<JsonValue> {
     )
 }
 
+#[derive(Serialize, Deserialize)]
+struct Login {
+    pub email: String,
+    pub password: String,
+}
+
+use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
+
+fn generate_token_code() -> String {
+    thread_rng().sample_iter(&Alphanumeric).take(80).collect()
+}
+
+#[post("/authorize", data = "<data>")]
+fn authorize(data: Json<Login>) -> Json<ApiResult<String>> {
+    let conn = DB.lock().unwrap();
+
+    use schema::accounts::dsl::*;
+
+    let account: models::Account = accounts
+        .filter(email.eq(&data.email))
+        .first(&*conn)
+        .expect("gagal mendapatkan user");
+
+    // cocokan password
+    if data.password != account.password {
+        return Json(ApiResult {
+            result: String::new(),
+        });
+    }
+
+    let access_token = generate_token_code();
+
+    {
+        let at = models::NewAccessToken {
+            user_id: account.id,
+            token: &access_token,
+        };
+
+        diesel::insert_into(schema::access_tokens::table)
+            .values(&at)
+            .execute(&*conn)
+            .expect("gagal menambahkan entry access token di db");
+    }
+
+    Json(ApiResult {
+        result: access_token,
+    })
+}
+
 #[get("/anggota")]
-fn daftar_anggota() -> Json<ApiResult> {
+fn daftar_anggota() -> Json<ApiResult<Vec<models::Account>>> {
     let conn = DB.lock().unwrap();
 
     use schema::accounts::dsl::*;
@@ -167,17 +221,76 @@ fn daftar_anggota() -> Json<ApiResult> {
     Json(ApiResult { result: daftar })
 }
 
+use rocket::http::Status;
+use rocket::request::{self, FromRequest, Request};
+use rocket::Outcome;
+
+struct AuthOnly {
+    pub access_token: String,
+    pub account: models::Account,
+}
+
+fn account_from_token(access_token: &str) -> Result<models::Account, &'static str> {
+    use schema::access_tokens::dsl as dslt;
+    use schema::accounts::dsl as dsla;
+
+    let conn = DB.lock().unwrap();
+
+    let at: models::AccessToken = dslt::access_tokens
+        .filter(dslt::token.eq(access_token))
+        .first(&*conn)
+        .map_err(|_| "no access token in db")?;
+
+    let account: models::Account = dsla::accounts
+        .find(at.user_id)
+        .first(&*conn)
+        .map_err(|_| "account not exists")?;
+
+    Ok(account)
+}
+
+impl<'a, 'r> FromRequest<'a, 'r> for AuthOnly {
+    type Error = String;
+
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<Self, Self::Error> {
+        let keys: Vec<&str> = request.headers().get("X-Access-Token").collect();
+        dbg!(&keys);
+        match keys.len() {
+            1 => {
+                let access_token = keys[0];
+
+                let account = account_from_token(access_token)
+                    .map_err(|e| Err((Status::Unauthorized, format!("{}", e))))?;
+
+                let access_token = access_token.to_string();
+
+                Outcome::Success(AuthOnly {
+                    access_token,
+                    account,
+                })
+            }
+            _ => Outcome::Failure((Status::Unauthorized, "No X-Access-Token header".to_string())),
+        }
+    }
+}
+
 #[post("/anggota/update", data = "<data>")]
-fn update(data: Json<UpdateAnggota>) -> Json<ApiResult> {
+fn update(data: Json<UpdateAnggota>, auth: AuthOnly) -> Json<ApiResult<Vec<models::Account>>> {
     let conn = DB.lock().unwrap();
 
     use schema::accounts::dsl::*;
+
+    println!(
+        "user yang mengakses /anggota/update: '{}'",
+        auth.account.nama
+    );
 
     let data_baru: models::Account = diesel::update(accounts.find(data.id))
         .set((
             nama.eq(&data.nama),
             email.eq(&data.email),
             alamat.eq(&data.alamat),
+            password.eq(&data.password),
         ))
         .get_result::<models::Account>(&*conn)
         .expect("gagal update ke database");
@@ -188,10 +301,14 @@ fn update(data: Json<UpdateAnggota>) -> Json<ApiResult> {
 }
 
 #[post("/anggota/delete", data = "<data>")]
-fn delete(data: Json<IdQuery>) -> String {
+fn delete(data: Json<IdQuery>, auth: AuthOnly) -> String {
     let conn = DB.lock().unwrap();
 
     use schema::accounts::dsl::*;
+    println!(
+        "user yang mengakses /anggota/delete: '{}'",
+        auth.account.nama
+    );
 
     diesel::delete(accounts.find(data.id))
         .execute(&*conn)
@@ -199,28 +316,12 @@ fn delete(data: Json<IdQuery>) -> String {
 
     format!("Akun anggota id `{}` telah dihapus.\n", data.id)
 }
-// end operation table accounts
+// accounts CRUD end
 
-// use std::time::{SystemTime, UNIX_EPOCH};
-
-// fn main() {
-//     let start = SystemTime::now();
-//     let since_the_epoch = start.duration_since(UNIX_EPOCH)
-//         .expect("Time went backwards");
-//     println!("{:?}", since_the_epoch);
-// }
-
-// operation table articles
+// articles CRUD start
 #[post("/article/add", format = "application/json", data = "<data>")]
 fn tambah_article(data: Json<AddArticle>) -> Json<JsonValue> {
     let conn = DB.lock().unwrap();
-
-    // use chrono::{NaiveDate, TimeZone};
-    // use chrono_tz::Asia::Jakarta;
-
-    // let naive_dt = NaiveDate::from_ymd(2038, 1, 19).and_hms(3, 14, 08);
-    // let tz_aware = Jakarta.from_local_datetime(&naive_dt).unwrap();
-    // assert_eq!(tz_aware.to_string(), "2038-01-19 03:14:08 SAST");
 
     let now = Local::now().naive_local();
 
@@ -293,15 +394,10 @@ fn delete_article(data: Json<IdQueryArticle>) -> String {
 
     format!("Artikel dengan id `{}` telah dihapus.\n", data.id)
 }
-// end operation table articles
+// articles CRUD end
 
 fn main() {
     dotenv().ok();
-    // let start = SystemTime::now();
-    // let since_the_epoch = start
-    //     .duration_since(UNIX_EPOCH)
-    //     .expect("Time went backwards");
-    // println!("{:?}", since_the_epoch);
 
     rocket::ignite()
         .mount(
@@ -317,7 +413,8 @@ fn main() {
                 daftar_article,
                 tambah_article,
                 delete_article,
-                update_article
+                update_article,
+                authorize
             ],
         )
         .launch();

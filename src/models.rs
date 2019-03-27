@@ -1,9 +1,21 @@
-// use diesel::pg::PgConnection;
-// use diesel::prelude::*;
-// use dotenv::dotenv;
-// use std::env;
+use crate::schema::*;
 
-use crate::schema::{accounts, articles};
+use super::chrono;
+use chrono::*;
+
+#[derive(Queryable, Serialize)]
+pub struct AccessToken {
+    pub id: i64,
+    pub user_id: i64,
+    pub token: String,
+}
+
+#[derive(Insertable)]
+#[table_name = "access_tokens"]
+pub struct NewAccessToken<'a> {
+    pub user_id: i64,
+    pub token: &'a str,
+}
 
 #[derive(Queryable, Serialize)]
 pub struct Account {
@@ -11,6 +23,7 @@ pub struct Account {
     pub nama: String,
     pub email: String,
     pub alamat: String,
+    pub password: String,
 }
 
 #[derive(Insertable)]
@@ -19,19 +32,8 @@ pub struct NewAccount<'a> {
     pub nama: &'a str,
     pub email: &'a str,
     pub alamat: &'a str,
+    pub password: &'a str,
 }
-
-// use chrono::offset::TimeZone;
-// use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
-// use chrono_tz::Asia::Jakarta;
-
-// let london_time = London.ymd(2016, 3, 18).and_hms(3, 0, 0);
-// let ny_time = london_time.with_timezone(&New_York);
-// assert_eq!(ny_time, New_York.ymd(2016, 3, 17).and_hms(23, 0, 0));
-// use std::time::SystemTime;
-use chrono::*;
-
-use super::chrono;
 
 #[derive(Queryable, Serialize)]
 pub struct Article {
